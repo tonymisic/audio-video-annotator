@@ -1,4 +1,4 @@
-import cv2
+import cv2, torchaudio
 def get_frames(video_file):
     cap = cv2.VideoCapture(video_file)
     frames = []
@@ -10,3 +10,14 @@ def get_frames(video_file):
         print("Error loading file!")
         return frames
     return frames
+
+def get_waveform(audio_file):
+
+    return audio_file
+
+def get_fps(video_len, length=10, rounded=False):
+    # rounded to the nearest frame
+    if rounded:
+        return round(float(video_len) / length)
+    else:
+        return float(video_len) / float(length)
