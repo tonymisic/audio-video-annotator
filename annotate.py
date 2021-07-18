@@ -4,8 +4,8 @@ from tkinter.constants import FALSE, GROOVE
 from tkinter import messagebox as mb
 from ttkthemes import ThemedTk, THEMES
 from tkinter.filedialog import askdirectory, askopenfilename
-import os, utils
-from PIL import Image
+import os, utils, math
+from PIL import ImageTk, Image
 
 class Editor(ThemedTk):
     ''' Viewing and annotating audio and video samples.
@@ -27,6 +27,7 @@ class Editor(ThemedTk):
         self.AUDIOS = []
         self.CURRENT_AUDIO = []
         self.ANNOS = []
+        self.FPS = 0
         # initialize and set theme
         border, b_width = GROOVE, 3
         ThemedTk.__init__(self, fonts=True, themebg=True)
@@ -69,26 +70,89 @@ class Editor(ThemedTk):
         self.create_spectrogram_view()
         # Grid widgets
         self.grid_widgets()
+        
 
     def change_video(self, change):
-        print(change)
+        if self.CURRENT_INDEX + change < 0:
+            mb.showwarning("Warning!", "At First Video!")
+        elif self.CURRENT_INDEX + change > len(self.VIDEOS) - 1:
+            mb.showwarning("Warning!", "At Last Video!")
+        else:
+            self.CURRENT_INDEX += change
+            self.load_data()
     def play_video(self):
         print("Playing~!")
     def pause_video(self):
         print("Paused~!")
     def change_frame(self):
-        print(self.slider.get())
+        self.CURRENT_FRAME = self.slider.get()
+        self.table.set("1", 'Value', self.CURRENT_FRAME)
+        self.table.set("2", 'Value', math.floor(self.CURRENT_FRAME / self.FPS) + 1)
+        self.update_frame()
+    
     def load_data(self):
         if self.ANNOTATIONS_SELECTED and self.AUDIO_SELECTED and self.VIDEO_SELECTED:
             print("Loading data!")
             self.VIDEOS = os.listdir(self.VIDEO_FOLDER)
-            self.CURRENT_VIDEO = utils.get_frames(self.VIDEO_FOLDER + self.VIDEOS[self.CURRENT_INDEX])
+            self.CURRENT_VIDEO = utils.get_frames(self.VIDEO_FOLDER + "/" +  self.VIDEOS[self.CURRENT_INDEX])
             self.AUDIOS = os.listdir(self.AUDIO_FOLDER)
-            self.CURRENT_AUDIO = utils.get_waveform(self.AUDIO_FOLDER + self.AUDIOS[self.CURRENT_INDEX])
             self.ANNOS = open(self.ANNOTATIONS_FILE, 'r').readlines()
+            self.initialize_data()
         else:
             mb.showwarning("Warning!", "Please make sure all required files are selected!")
+
+    def parse_annos(self):
+        temp = {}
+        for i in self.ANNOS:
+            data = i.rstrip('\n').split('&')
+            temp[data[1]] = [data[0], data[2], data[3], data[4]]
+        self.ANNOS = temp
     
+    def initialize_data(self):
+        self.img = ImageTk.PhotoImage(image=Image.fromarray(self.CURRENT_VIDEO[self.CURRENT_FRAME][:,:,::-1]))
+        self.video_container = self.video_canvas.create_image(450, 300, anchor=tk.CENTER, image=self.img)
+        self.slider.config(to=len(self.CURRENT_VIDEO) - 1)
+        self.FPS = utils.get_fps(len(self.CURRENT_VIDEO))
+        utils.plot_waveform(self.AUDIO_FOLDER + "/" + self.AUDIOS[self.CURRENT_INDEX])
+        self.img_audio = tk.PhotoImage(file=r'./current_audio.png')
+        self.audio_canvas.create_image(450, 50, image=self.img_audio)
+        self.parse_annos()
+        self.change_table_values()
+        self.draw_segments()
+
+    def draw_segments(self):
+        in_event, offset = False, 2.5
+        self.audio_canvas.create_line(offset, 0, offset, 100, width=1)
+        for i in range(0, 11):
+            if i == int(self.ANNOS[self.VIDEOS[self.CURRENT_INDEX].rstrip('.mp4')][2]) - 1: # start
+                in_event = True
+            if in_event: 
+                self.audio_canvas.create_line(i * 90, 0, i * 90, 100, fill='#ed2121', width=2)
+                if i != int(self.ANNOS[self.VIDEOS[self.CURRENT_INDEX].rstrip('.mp4')][3]):
+                    self.audio_canvas.create_line(i * 90, offset, (i + 1) * 90, offset, fill='#ed2121', width=2)
+                    self.audio_canvas.create_line(i * 90, 100, (i + 1) * 90, 100, fill='#ed2121', width=2)
+            else:
+                self.audio_canvas.create_line(i * 90, 0, i * 90, 100, width=1)
+            if i == int(self.ANNOS[self.VIDEOS[self.CURRENT_INDEX].rstrip('.mp4')][3]): # end
+                in_event = False
+
+    def update_frame(self):
+        self.img = ImageTk.PhotoImage(image=Image.fromarray(self.CURRENT_VIDEO[self.CURRENT_FRAME][:,:,::-1]))
+        self.video_canvas.itemconfig(self.video_container, image=self.img)
+
+    def change_table_values(self):
+        self.table.set("0", 'Value', self.VIDEOS[self.CURRENT_INDEX].rstrip('.mp4'))
+        self.table.set("1", 'Value', self.CURRENT_FRAME)
+        self.table.set("2", 'Value', self.CURRENT_SEGMENT)
+        self.table.set("3", 'Value', self.ANNOS[self.VIDEOS[self.CURRENT_INDEX].rstrip('.mp4')][0])
+        self.table.set("4", 'Value', self.ANNOS[self.VIDEOS[self.CURRENT_INDEX].rstrip('.mp4')][2])
+        self.table.set("5", 'Value', self.ANNOS[self.VIDEOS[self.CURRENT_INDEX].rstrip('.mp4')][3])
+        self.table.set("6", 'Value', self.ANNOS[self.VIDEOS[self.CURRENT_INDEX].rstrip('.mp4')][1])
+        self.table.set("7", 'Value', len(self.CURRENT_VIDEO))
+        self.table.set("8", 'Value', utils.get_fps(len(self.CURRENT_VIDEO)))
+        self.table.set("9", 'Value', 128)
+        self.table.set("10", 'Value', 96)
+
     def select_folder(self, modality):
         if modality == 'audio':
             self.AUDIO_FOLDER = askdirectory(title='Select folder with .wav files', initialdir='/')
@@ -119,6 +183,7 @@ class Editor(ThemedTk):
 
     def create_audio_view(self):
         self.audio_canvas.pack(in_=self.audio_view, expand=False)
+        
 
     def create_controls_view(self):
         self.previous_video.pack(in_=self.controls_view, side=tk.LEFT, expand=False, padx=60)
@@ -132,17 +197,17 @@ class Editor(ThemedTk):
     def grid_stats(self):
         self.table.heading('Variable', text="Variable")
         self.table.heading('Value', text="Value")
-        self.table.insert("", "end", values=("File", "undetermined"))
-        self.table.insert("", "end", values=("Current Frame", "undetermined"))
-        self.table.insert("", "end", values=("Current Segment", "undetermined"))
-        self.table.insert("", "end", values=("Class", "undetermined"))
-        self.table.insert("", "end", values=("Event Start", "undetermined"))
-        self.table.insert("", "end", values=("Event End", "undetermined"))
-        self.table.insert("", "end", values=("Audio Quality", "undetermined"))
-        self.table.insert("", "end", values=("Frame Count", "undetermined"))
-        self.table.insert("", "end", values=("FPS", "undetermined"))
-        self.table.insert("", "end", values=("Mel-Frames", "undetermined"))
-        self.table.insert("", "end", values=("Mel-Bands", "undetermined"))
+        self.table.insert("", "end", values=("File", "undetermined"), iid="0")
+        self.table.insert("", "end", values=("Current Frame", "undetermined"), iid="1")
+        self.table.insert("", "end", values=("Current Segment", "undetermined"), iid="2")
+        self.table.insert("", "end", values=("Class", "undetermined"), iid="3")
+        self.table.insert("", "end", values=("Event Start", "undetermined"), iid="4")
+        self.table.insert("", "end", values=("Event End", "undetermined"), iid="5")
+        self.table.insert("", "end", values=("Audio Quality", "undetermined"), iid="6")
+        self.table.insert("", "end", values=("Frame Count", "undetermined"), iid="7")
+        self.table.insert("", "end", values=("FPS", "undetermined"), iid="8")
+        self.table.insert("", "end", values=("Mel-Frames", "undetermined"), iid="9")
+        self.table.insert("", "end", values=("Mel-Bands", "undetermined"), iid="10")
 
     def create_file_view(self):
         self.folder_a.pack(in_=self.file_view, expand=True)
