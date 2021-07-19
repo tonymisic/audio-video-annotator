@@ -80,6 +80,7 @@ class Editor(ThemedTk):
         else:
             self.CURRENT_INDEX += change
             self.load_data()
+
     def play_video(self):
         print("Playing~!")
     def pause_video(self):
@@ -114,8 +115,11 @@ class Editor(ThemedTk):
         self.slider.config(to=len(self.CURRENT_VIDEO) - 1)
         self.FPS = utils.get_fps(len(self.CURRENT_VIDEO))
         utils.plot_waveform(self.AUDIO_FOLDER + "/" + self.AUDIOS[self.CURRENT_INDEX])
+        utils.plot_spectrogram(self.AUDIO_FOLDER + "/" + self.AUDIOS[self.CURRENT_INDEX])
         self.img_audio = tk.PhotoImage(file=r'./current_audio.png')
         self.audio_canvas.create_image(450, 50, image=self.img_audio)
+        self.img_spec = tk.PhotoImage(file=r'./spectrogram.png')
+        self.spectrogram_canvas.create_image(250, 100, image=self.img_spec)
         self.parse_annos()
         self.change_table_values()
         self.draw_segments()
@@ -184,7 +188,6 @@ class Editor(ThemedTk):
     def create_audio_view(self):
         self.audio_canvas.pack(in_=self.audio_view, expand=False)
         
-
     def create_controls_view(self):
         self.previous_video.pack(in_=self.controls_view, side=tk.LEFT, expand=False, padx=60)
         self.play.pack(in_=self.controls_view, side=tk.LEFT, expand=False)

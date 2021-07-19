@@ -33,3 +33,18 @@ def get_fps(video_len, length=10, rounded=False):
         return round(float(video_len) / length)
     else:
         return float(video_len) / float(length)
+
+def plot_spectrogram(audio_file):
+    waveform, sample_rate = torchaudio.load(audio_file)
+    waveform = waveform.numpy()
+    _, num_frames = waveform.shape
+    time_axis = torch.arange(0, num_frames) / sample_rate
+    plt.figure(figsize=(5, 2))
+    plt.axis('off')
+    plt.gca().set_axis_off()
+    plt.margins(0,0)
+    plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, hspace = 0, wspace = 0)
+    plt.gca().xaxis.set_major_locator(plt.NullLocator())
+    plt.gca().yaxis.set_major_locator(plt.NullLocator())
+    plt.specgram(waveform[0], Fs=sample_rate)
+    plt.savefig('spectrogram.png', bbox_inches=0, pad_inches=0)
